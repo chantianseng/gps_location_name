@@ -60,25 +60,6 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- Runtime GitHub Credentials Card -->
-  <div class="card">
-    <div class="section-title">GitHub 凭证设置 (运行时输入)</div>
-    <div class="field">
-      <label>GitHub Personal Access Token (PAT)</label>
-      <input id="ghTokenInput" type="password" placeholder="在此输入您的 GitHub Token" onchange="saveGitHubConfig()">
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-      <div class="field" style="margin-bottom:0;">
-        <label>GitHub 用户名 / 组织</label>
-        <input id="ghOwnerInput" type="text" placeholder="例如: username" onchange="saveGitHubConfig()">
-      </div>
-      <div class="field" style="margin-bottom:0;">
-        <label>仓库名称 (Repository)</label>
-        <input id="ghRepoInput" type="text" placeholder="例如: repo-name" onchange="saveGitHubConfig()">
-      </div>
-    </div>
-  </div>
-
   <div class="card">
     <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息</div>
     <div class="result-grid" id="primaryGrid">
@@ -105,25 +86,6 @@ let lastOverpass = null;
 let coordHistory = [];
 let historyIndex = -1;
 let isNavigating = false;
-
-// Dynamic runtime configuration loader for GitHub secret logging
-function getGitHubConfig() {
-  return {
-    token: localStorage.getItem('gh_token') || document.getElementById('ghTokenInput').value.trim(),
-    owner: localStorage.getItem('gh_owner') || document.getElementById('ghOwnerInput').value.trim(),
-    repo: localStorage.getItem('gh_repo') || document.getElementById('ghRepoInput').value.trim(),
-    path: 'datalogreport.csv'
-  };
-}
-
-function saveGitHubConfig() {
-  const token = document.getElementById('ghTokenInput').value.trim();
-  const owner = document.getElementById('ghOwnerInput').value.trim();
-  const repo = document.getElementById('ghRepoInput').value.trim();
-  if (token) localStorage.setItem('gh_token', token);
-  if (owner) localStorage.setItem('gh_owner', owner);
-  if (repo) localStorage.setItem('gh_repo', repo);
-}
 
 const i18n = {
   zh: {
@@ -349,57 +311,30 @@ function navigateHistory(direction) {
   });
 }
 
-// Function to synchronize and secretly save log report to GitHub repository CSV via runtime configuration
+// Function to call your secure Backend Proxy instead of using a hardcoded token
 async function syncLogReportToGitHub(lat, lon) {
-  const config = getGitHubConfig();
-  if (!config.token || !config.owner || !config.repo) return;
-  
-  const timestamp = new Date().toISOString();
-  const road = lastAddress.road || lastAddress.pedestrian || lastAddress.footway || '-';
-  const village = lastAddress.village || lastAddress.hamlet || lastAddress.suburb || '-';
-  const town = lastAddress.town || lastAddress.municipality || '-';
-  const city = lastAddress.city || lastAddress.town || lastAddress.county || '-';
-  const state = lastAddress.state || lastAddress.province || '-';
-  const country = lastAddress.country || '-';
-  const postcode = lastAddress.postcode || '-';
-  const elevation = lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation : 'N/A';
-
-  const newRow = `"${timestamp}","${lat}","${lon}","${road}","${village}","${town}","${city}","${state}","${country}","${postcode}","${elevation}"\n`;
-  const apiUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
+  const payload = {
+    lat: lat,
+    lon: lon,
+    timestamp: new Date().toISOString(),
+    road: lastAddress.road || lastAddress.pedestrian || lastAddress.footway || '-',
+    village: lastAddress.village || lastAddress.hamlet || lastAddress.suburb || '-',
+    town: lastAddress.town || lastAddress.municipality || '-',
+    city: lastAddress.city || lastAddress.town || lastAddress.county || '-',
+    state: lastAddress.state || lastAddress.province || '-',
+    country: lastAddress.country || '-',
+    postcode: lastAddress.postcode || '-',
+    elevation: lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation : 'N/A'
+  };
 
   try {
-    let sha = null;
-    let existingContent = 'Timestamp,Latitude,Longitude,Road,Village,Town,City,State,Country,Postcode,Elevation\n';
-
-    const getRes = await fetch(apiUrl, {
-      headers: { 'Authorization': `token ${config.token}` }
-    });
-
-    if (getRes.ok) {
-      const fileData = await getRes.json();
-      sha = fileData.sha;
-      const binString = atob(fileData.content);
-      const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
-      existingContent = new TextDecoder().decode(bytes);
-    }
-
-    const updatedContent = existingContent + newRow;
-    const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
-
-    await fetch(apiUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${config.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: `Update datalogreport.csv for GPS coordinate: ${lat}, ${lon}`,
-        content: encodedContent,
-        sha: sha ? sha : undefined
-      })
+    await fetch('/api/log-gps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
   } catch (err) {
-    console.error('GitHub sync error:', err);
+    console.error('Backend proxy sync error:', err);
   }
 }
 
@@ -586,13 +521,8 @@ function renderResults() {
   }
 }
 
-// Initialize on page load
-window.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('gh_token')) document.getElementById('ghTokenInput').value = localStorage.getItem('gh_token');
-  if (localStorage.getItem('gh_owner')) document.getElementById('ghOwnerInput').value = localStorage.getItem('gh_owner');
-  if (localStorage.getItem('gh_repo')) document.getElementById('ghRepoInput').value = localStorage.getItem('gh_repo');
-  populatePresets();
-});
+// Initialize presets on page load
+populatePresets();
 </script>
 </body>
 </html>

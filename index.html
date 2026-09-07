@@ -27,7 +27,6 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 .result-item small{display:block;color:var(--muted);font-size:11px;margin-bottom:4px;word-break:break-all}
 .result-item b{font-size:14px;color:var(--text);word-break:break-all}
 .full-span{grid-column:1 / -1}
-.json-box{background:#0c121b;border:1px solid var(--line);border-radius:12px;padding:14px;font-family:monospace;font-size:12px;color:var(--green);max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all}
 </style>
 </head>
 <body>
@@ -53,20 +52,20 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
+  <!-- 优先马上显示的区块：Road, Town, City, Postcode, State/Province, Country -->
   <div class="card">
-    <div class="section-title" data-i18n="sec_terrain">1. 地形与环境遥感数据 (Elevation & Terrain)</div>
-    <div class="result-grid" id="terrainGrid">
-      <div class="result-item full-span"><small>Status</small><b>Waiting for input / 等待输入坐标</b></div>
+    <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息 (Core Location Details)</div>
+    <div class="result-grid" id="primaryGrid">
+      <div class="result-item full-span"><small>Status</small><b>等待输入坐标 / Waiting for input</b></div>
     </div>
+  </div>
 
-    <div class="section-title" data-i18n="sec_admin">2. 详细行政区划与扩展标签 (Administrative & Extra Tags)</div>
-    <div class="result-grid" id="adminGrid"></div>
-
-    <div class="section-title" data-i18n="sec_infra">3. 周边近距离基础设施与建筑 (Nearby Infrastructure / Overpass)</div>
-    <div class="result-grid" id="infraGrid"></div>
-
-    <div class="section-title" data-i18n="sec_raw">4. 原始多源 JSON 响应数据流 (Raw Payload Inspector)</div>
-    <div id="rawJsonBox" class="json-box">// 暂无数据</div>
+  <!-- 稍后加载的扩展数据区块：Elevation, Infrastructure等 -->
+  <div class="card">
+    <div class="section-title" data-i18n="sec_extended">2. 扩展地形与周边实体数据 (Extended Terrain & Infrastructure)</div>
+    <div class="result-grid" id="extendedGrid">
+      <div class="result-item full-span"><small>Status</small><b>等待核心数据加载完成 / Waiting...</b></div>
+    </div>
   </div>
 </div>
 
@@ -80,29 +79,45 @@ const i18n = {
     lbl_lon: "经度 (Longitude)",
     btn_query: "深度提取全量空间与地形数据",
     btn_current: "获取当前GPS定位",
-    sec_terrain: "1. 地形与环境遥感数据 (Elevation & Terrain)",
-    sec_admin: "2. 详细行政区划与扩展标签 (Administrative & Extra Tags)",
-    sec_infra: "3. 周边近距离基础设施与建筑 (Nearby Infrastructure)",
-    sec_raw: "4. 原始多源 JSON 响应数据流 (Raw Payload Inspector)",
+    sec_primary: "1. 核心地理位置信息 (Road, Town, City, Postcode, State, Country)",
+    sec_extended: "2. 扩展地形与周边实体数据 (Extended Terrain & Infrastructure)",
+    r_country: "国家 (Country)",
+    r_state: "省/州 (State/Province)",
+    r_city: "市 (City)",
+    r_district: "地区/县 (District)",
+    r_town: "镇/村/本地名 (Town/Village)",
+    r_road: "道路 (Road)",
+    r_postcode: "邮编 (Postcode)",
+    r_elevation: "海拔高度 (Elevation)",
+    r_infra: "周边基础设施 (Nearby Infrastructure)",
+    status_ready: "等待输入坐标",
+    status_loading_primary: "正在快速加载核心地理位置...",
+    status_loading_extended: "正在后台加载地形与周边实体...",
     err_geo: "浏览器不支持定位或权限拒绝",
-    err_fetch: "获取多源空间数据失败，请重试",
-    locating: "正在获取GPS...",
-    querying: "正在并行联通全球多个GIS空间数据库..."
+    err_fetch: "获取多源空间数据失败，请重试"
   },
   en: {
     brand: "Advanced GIS Engine <span>·</span> Multi-Source Extractor",
     lbl_lat: "Latitude",
     lbl_lon: "Longitude",
-    btn_query: "Extract Full Spatial & Terrain Data",
+    btn_query: "Extract Spatial & Terrain Data",
     btn_current: "Get Current GPS",
-    sec_terrain: "1. Elevation & Terrain Data",
-    sec_admin: "2. Administrative & Extended Tags",
-    sec_infra: "3. Nearby Infrastructure & Buildings",
-    sec_raw: "4. Raw Multi-Source JSON Payload",
+    sec_primary: "1. Core Location Details (Road, Town, City, Postcode, State, Country)",
+    sec_extended: "2. Extended Terrain & Infrastructure Data",
+    r_country: "Country",
+    r_state: "State/Province",
+    r_city: "City",
+    r_district: "District",
+    r_town: "Town/Village",
+    r_road: "Road",
+    r_postcode: "Postcode",
+    r_elevation: "Elevation",
+    r_infra: "Nearby Infrastructure",
+    status_ready: "Waiting for coordinates",
+    status_loading_primary: "Quickly loading core location details...",
+    status_loading_extended: "Loading elevation & infrastructure in background...",
     err_geo: "Geolocation not supported or denied",
-    err_fetch: "Failed to fetch multi-source data, please retry",
-    locating: "Getting GPS...",
-    querying: "Querying multiple global GIS databases concurrently..."
+    err_fetch: "Failed to fetch multi-source data, please retry"
   }
 };
 
@@ -125,7 +140,7 @@ function fetchCurrentLocation() {
     return;
   }
   
-  document.getElementById('terrainGrid').innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].locating}</b></div>`;
+  document.getElementById('primaryGrid').innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -149,79 +164,71 @@ async function extractAllData() {
     return;
   }
 
-  document.getElementById('terrainGrid').innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].querying}</b></div>`;
-  document.getElementById('adminGrid').innerHTML = '';
-  document.getElementById('infraGrid').innerHTML = '';
-  document.getElementById('rawJsonBox').innerText = '// Loading...';
+  const primaryGrid = document.getElementById('primaryGrid');
+  const extendedGrid = document.getElementById('extendedGrid');
+
+  primaryGrid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
+  extendedGrid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_extended}</b></div>`;
 
   try {
     const apiLang = currentLang === 'en' ? 'en' : 'zh-CN';
 
-    // 1. 并行发起多源高级查询：反向地理编码（含极细扩展标签）、全球开源高程API、Overpass地理空间实体API
-    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&extratags=1&namedetails=1&accept-language=${apiLang}`;
+    // 1. 优先请求核心地理位置（速度最快）
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=${apiLang}`;
+    const nomRes = await fetch(nominatimUrl).then(r => r.json());
+    const address = nomRes.address || {};
+
+    // 提取要求的核心字段：road, town, city, postcode, state/province, country
+    const road = address.road || address.pedestrian || address.footway || '-';
+    const town = address.town || address.suburb || address.village || address.hamlet || address.neighbourhood || '-';
+    const city = address.city || address.town || address.municipality || address.county || '-';
+    const postcode = address.postcode || '-';
+    const state = address.state || address.province || address.region || '-';
+    const country = address.country || '-';
+
+    // 马上渲染核心数据区块
+    primaryGrid.innerHTML = `
+      <div class="result-item"><small>${i18n[currentLang].r_country}</small><b>${country}</b></div>
+      <div class="result-item"><small>${i18n[currentLang].r_state}</small><b>${state}</b></div>
+      <div class="result-item"><small>${i18n[currentLang].r_city}</small><b>${city}</b></div>
+      <div class="result-item"><small>${i18n[currentLang].r_town}</small><b>${town}</b></div>
+      <div class="result-item"><small>${i18n[currentLang].r_road}</small><b>${road}</b></div>
+      <div class="result-item"><small>${i18n[currentLang].r_postcode}</small><b>${postcode}</b></div>
+    `;
+
+    // 2. 异步并行请求耗时较长的扩展数据（如高程、周边实体）
     const elevationUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
     const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:100,${lat},${lon});out body;`;
 
-    const [nomRes, eleRes, overRes] = await Promise.allSettled([
-      fetch(nominatimUrl).then(r => r.json()),
+    const [eleRes, overRes] = await Promise.allSettled([
       fetch(elevationUrl).then(r => r.json()),
       fetch(overpassUrl).then(r => r.json())
     ]);
 
-    const nomData = nomRes.status === 'fulfilled' ? nomRes.value : {};
     const eleData = eleRes.status === 'fulfilled' ? eleRes.value : {};
     const overData = overRes.status === 'fulfilled' ? overRes.value : {};
 
-    // 渲染 1. 地形与高程数据
-    let terrainHtml = `
-      <div class="result-item"><small>Elevation (海拨高度)</small><b>${eleData.elevation !== undefined ? eleData.elevation + ' meters' : 'N/A'}</b></div>
-      <div class="result-item"><small>Coordinate Precision Source</small><b>Open-Meteo DEM / GPS Sensor</b></div>
+    let extendedHtml = `
+      <div class="result-item"><small>${i18n[currentLang].r_elevation}</small><b>${eleData.elevation !== undefined ? eleData.elevation + ' meters' : 'N/A'}</b></div>
     `;
-    document.getElementById('terrainGrid').innerHTML = terrainHtml;
 
-    // 渲染 2. 行政区划与扩展标签 (Address & Extratags)
-    let adminHtml = '';
-    const address = nomData.address || {};
-    Object.keys(address).forEach(k => {
-      adminHtml += `<div class="result-item"><small>Address Tag: ${k}</small><b>${address[k]}</b></div>`;
-    });
-
-    const extratags = nomData.extratags || {};
-    Object.keys(extratags).forEach(k => {
-      adminHtml += `<div class="result-item"><small>Extra Attribute: ${k}</small><b>${extratags[k]}</b></div>`;
-    });
-    
-    if (!adminHtml) adminHtml = `<div class="result-item full-span"><small>Notice</small><b>No extra administrative boundaries found.</b></div>`;
-    document.getElementById('adminGrid').innerHTML = adminHtml;
-
-    // 渲染 3. 周边基础设施与实体 (Overpass API)
-    let infraHtml = '';
     const elements = overData.elements || [];
     if (elements.length > 0) {
-      // 提取前6个邻近空间节点
-      elements.slice(0, 6).forEach((el, idx) => {
+      elements.slice(0, 4).forEach((el, idx) => {
         const tags = el.tags || {};
         const name = tags.name || tags.amenity || tags.building || tags.highway || `Node #${el.id}`;
-        infraHtml += `
+        extendedHtml += `
           <div class="result-item">
-            <small>Nearby Entity #${idx+1} (${el.type})</small>
+            <small>${i18n[currentLang].r_infra} #${idx+1}</small>
             <b>${name}</b>
           </div>
         `;
       });
     } else {
-      infraHtml = `<div class="result-item full-span"><small>Notice</small><b>No specific spatial nodes within 100m radius.</b></div>`;
+      extendedHtml += `<div class="result-item"><small>${i18n[currentLang].r_infra}</small><b>None within 100m radius</b></div>`;
     }
-    document.getElementById('infraGrid').innerHTML = infraHtml;
 
-    // 渲染 4. 完整聚合 JSON 负载
-    const fullPayload = {
-      query_metadata: { latitude: lat, longitude: lon, timestamp: new Date().toISOString() },
-      elevation_api: eleData,
-      geocoding_api: nomData,
-      spatial_infrastructure_api: overData
-    };
-    document.getElementById('rawJsonBox').innerText = JSON.stringify(fullPayload, null, 2);
+    extendedGrid.innerHTML = extendedHtml;
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);

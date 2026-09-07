@@ -421,9 +421,8 @@ function fetchCurrentLocation() {
       const lon = pos.coords.longitude.toFixed(6);
       document.getElementById('latInput').value = lat;
       document.getElementById('lonInput').value = lon;
-      extractAllData().then(() => {
-        syncLogReportToGitHub(lat, lon);
-      });
+      // Now cleanly calls extractAllData, which handles the GitHub sync internally
+      extractAllData();
     },
     err => {
       alert(i18n[currentLang].err_geo + ": " + err.message);
@@ -471,6 +470,9 @@ async function extractAllData() {
     lastOverpass = overRes.status === 'fulfilled' ? overRes.value : {};
 
     renderExtendedResults();
+
+    // ⭐️ MODIFICATION HIGHLIGHT: Automatically syncs log report for manual queries, presets, and GPS alike
+    await syncLogReportToGitHub(lat, lon);
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);

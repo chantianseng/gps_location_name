@@ -17,6 +17,8 @@ header{display:flex;justify-content:space-between;align-items:center;padding:10p
 .field{background:#0c121b;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 input{width:100%;background:transparent;border:0;color:var(--text);font-size:16px;outline:0}
+select{width:100%;background:transparent;border:0;color:var(--text);font-size:16px;outline:0;cursor:pointer}
+select option{background:var(--panel2);color:var(--text)}
 .actions{display:flex;gap:10px;margin-top:16px}
 button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:700;cursor:pointer}
 .primary{background:var(--gold);color:#15110a;flex:1}
@@ -34,11 +36,16 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 <div class="app">
   <header>
     <div class="brand" data-i18n="brand">全球地理位置信息提取</div>
-    <!-- Removed class="secondary" and added flex-shrink: 0, min-width, border: none -->
     <button id="langBtn" style="width:38px;height:38px;min-width:38px;flex-shrink:0;border:none;background:transparent;border-radius:50%;padding:0;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="toggleLang()" title="Switch Language">🇨🇳</button>
   </header>
 
   <div class="card">
+    <!-- Preset Dropdown Field -->
+    <div class="field">
+      <label data-i18n="lbl_preset">预设城市 (快捷选择)</label>
+      <select id="presetSelect" onchange="loadPreset()"></select>
+    </div>
+
     <div class="field">
       <label data-i18n="lbl_lat">纬度</label>
       <input id="latInput" type="number" step="any" placeholder="例如: 3.1390">
@@ -78,6 +85,7 @@ let lastOverpass = null;
 const i18n = {
   zh: {
     brand: "全球地理位置信息提取",
+    lbl_preset: "预设城市 (快捷选择)",
     lbl_lat: "纬度",
     lbl_lon: "经度",
     lbl_status: "状态",
@@ -116,6 +124,7 @@ const i18n = {
   },
   en: {
     brand: "Global Geographic Information Extractor",
+    lbl_preset: "Preset City (Quick Select)",
     lbl_lat: "Latitude",
     lbl_lon: "Longitude",
     lbl_status: "Status",
@@ -209,6 +218,57 @@ const osmValueMap = {
   }
 };
 
+const presetLocations = [
+  { id: 'default', zh: '-- 请选择预设城市 --', en: '-- Select Preset City --', lat: '', lon: '' },
+  { id: 'us', zh: '纽约, 美国 (New York, US)', en: 'New York, US', lat: 40.7128, lon: -74.0060 },
+  { id: 'uk', zh: '伦敦, 英国 (London, UK)', en: 'London, UK', lat: 51.5074, lon: -0.1278 },
+  { id: 'cn', zh: '北京, 中国 (Beijing, CN)', en: 'Beijing, China', lat: 39.9042, lon: 116.4074 },
+  { id: 'it', zh: '罗马, 意大利 (Rome, IT)', en: 'Rome, Italy', lat: 41.9028, lon: 12.4964 },
+  { id: 'af1', zh: '开罗, 埃及 - 非洲 (Cairo, EG)', en: 'Cairo, Egypt (Africa)', lat: 30.0444, lon: 31.2357 },
+  { id: 'ru', zh: '莫斯科, 俄罗斯 (Moscow, RU)', en: 'Moscow, Russia', lat: 55.7558, lon: 37.6173 },
+  { id: 'my', zh: '吉隆坡, 马来西亚 (Kuala Lumpur, MY)', en: 'Kuala Lumpur, Malaysia', lat: 3.1390, lon: 101.6869 },
+  { id: 'sg', zh: '新加坡 (Singapore, SG)', en: 'Singapore, SG', lat: 1.2897, lon: 103.8501 },
+  { id: 'in', zh: '新德里, 印度 (New Delhi, IN)', en: 'New Delhi, India', lat: 28.6139, lon: 77.2090 },
+  { id: 'mx', zh: '墨西哥城, 墨西哥 (Mexico City, MX)', en: 'Mexico City, Mexico', lat: 19.4326, lon: -99.1332 },
+  { id: 'jp', zh: '东京, 日本 (Tokyo, JP)', en: 'Tokyo, Japan', lat: 35.6762, lon: 139.6503 },
+  { id: 'fr', zh: '巴黎, 法国 (Paris, FR)', en: 'Paris, France', lat: 48.8566, lon: 2.3522 },
+  { id: 'au', zh: '悉尼, 澳大利亚 (Sydney, AU)', en: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
+  { id: 'br', zh: '里约热内卢, 巴西 (Rio de Janeiro, BR)', en: 'Rio de Janeiro, Brazil', lat: -22.9068, lon: -43.1729 },
+  { id: 'af2', zh: '开普敦, 南非 - 非洲 (Cape Town, ZA)', en: 'Cape Town, South Africa', lat: -33.9249, lon: 18.4241 },
+  { id: 'ae', zh: '迪拜, 阿联酋 (Dubai, AE)', en: 'Dubai, UAE', lat: 25.2048, lon: 55.2708 },
+  { id: 'ca', zh: '多伦多, 加拿大 (Toronto, CA)', en: 'Toronto, Canada', lat: 43.6510, lon: -79.3470 },
+  { id: 'de', zh: '柏林, 德国 (Berlin, DE)', en: 'Berlin, Germany', lat: 52.5200, lon: 13.4050 },
+  { id: 'kr', zh: '首尔, 韩国 (Seoul, KR)', en: 'Seoul, South Korea', lat: 37.5665, lon: 126.9780 },
+  { id: 'ar', zh: '布宜诺斯艾利斯, 阿根廷 (Buenos Aires, AR)', en: 'Buenos Aires, Argentina', lat: -34.6037, lon: -58.3816 }
+];
+
+function populatePresets() {
+  const select = document.getElementById('presetSelect');
+  const currentVal = select.value;
+  select.innerHTML = '';
+  presetLocations.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p[currentLang];
+    opt.dataset.lat = p.lat;
+    opt.dataset.lon = p.lon;
+    if (p.id === currentVal) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function loadPreset() {
+  const select = document.getElementById('presetSelect');
+  const selectedOpt = select.options[select.selectedIndex];
+  
+  if (selectedOpt.value === 'default') return;
+
+  document.getElementById('latInput').value = selectedOpt.dataset.lat;
+  document.getElementById('lonInput').value = selectedOpt.dataset.lon;
+  
+  extractAllData();
+}
+
 function translateOSMValue(val) {
   if (!val || val === '-') return '-';
   const lower = String(val).toLowerCase();
@@ -222,6 +282,7 @@ function toggleLang() {
   document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇨🇳' : '🇬🇧';
   
   updateText();
+  populatePresets();
   
   const lat = document.getElementById('latInput').value;
   const lon = document.getElementById('lonInput').value;
@@ -249,6 +310,7 @@ function fetchCurrentLocation() {
 
   navigator.geolocation.getCurrentPosition(
     pos => {
+      document.getElementById('presetSelect').value = 'default';
       document.getElementById('latInput').value = pos.coords.latitude.toFixed(6);
       document.getElementById('lonInput').value = pos.coords.longitude.toFixed(6);
       extractAllData();
@@ -383,6 +445,9 @@ function renderResults() {
     renderExtendedResults();
   }
 }
+
+// Initialize presets on page load
+populatePresets();
 </script>
 </body>
 </html>

@@ -52,9 +52,11 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
       <button class="primary" onclick="extractAllData()" data-i18n="btn_query">输入经纬定位</button>
       <button class="secondary" onclick="fetchCurrentLocation()" data-i18n="btn_current">获取当前GPS定位</button>
     </div>
-    <!-- Preset Dropdown Field positioned below buttons and styled to match button size -->
-    <div style="margin-top: 10px;">
-      <select id="presetSelect" class="secondary" onchange="loadPreset()"></select>
+    <!-- Preset Dropdown Field flanked by history navigation buttons -->
+    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+      <button class="secondary" onclick="navigateHistory(-1)" style="width: 45px; height: 45px; min-width: 45px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;" title="Previous Coordinate">◀</button>
+      <select id="presetSelect" class="secondary" style="flex: 1;" onchange="loadPreset()"></select>
+      <button class="secondary" onclick="navigateHistory(1)" style="width: 45px; height: 45px; min-width: 45px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;" title="Next Coordinate">▶</button>
     </div>
   </div>
 
@@ -79,6 +81,11 @@ let lastAddress = {};
 let lastExtratags = {};
 let lastElevation = null;
 let lastOverpass = null;
+
+// Coordinate history management variables
+let coordHistory = [];
+let historyIndex = -1;
+let isNavigating = false;
 
 const i18n = {
   zh: {
@@ -265,6 +272,45 @@ function loadPreset() {
   extractAllData();
 }
 
+function recordHistory(lat, lon) {
+  if (isNavigating) return;
+  const numLat = parseFloat(lat);
+  const numLon = parseFloat(lon);
+  if (isNaN(numLat) || isNaN(numLon)) return;
+
+  if (historyIndex >= 0 && coordHistory[historyIndex].lat === numLat && coordHistory[historyIndex].lon === numLon) {
+    return;
+  }
+
+  if (historyIndex < coordHistory.length - 1) {
+    coordHistory = coordHistory.slice(0, historyIndex + 1);
+  }
+
+  coordHistory.push({ lat: numLat, lon: numLon });
+  if (coordHistory.length > 100) {
+    coordHistory.shift();
+  }
+  historyIndex = coordHistory.length - 1;
+}
+
+function navigateHistory(direction) {
+  if (coordHistory.length === 0) return;
+  let newIndex = historyIndex + direction;
+  if (newIndex < 0 || newIndex >= coordHistory.length) return;
+
+  historyIndex = newIndex;
+  const target = coordHistory[historyIndex];
+
+  isNavigating = true;
+  document.getElementById('latInput').value = target.lat;
+  document.getElementById('lonInput').value = target.lon;
+  document.getElementById('presetSelect').value = 'default';
+  
+  extractAllData().finally(() => {
+    isNavigating = false;
+  });
+}
+
 function translateOSMValue(val) {
   if (!val || val === '-') return '-';
   const lower = String(val).toLowerCase();
@@ -326,6 +372,8 @@ async function extractAllData() {
     alert(currentLang === 'zh' ? '请输入或获取有效的经纬度' : 'Please input valid latitude and longitude');
     return;
   }
+
+  recordHistory(lat, lon);
 
   const primaryGrid = document.getElementById('primaryGrid');
   const extendedGrid = document.getElementById('extendedGrid');

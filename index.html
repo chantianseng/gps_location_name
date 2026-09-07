@@ -51,19 +51,19 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- 核心地理位置信息：严格按要求左右2列排布 (左道路/右乡村 -> 左镇/市 -> 左省/右州 -> 左国/右邮编) -->
+  <!-- 核心地理位置信息：左右两列，严格按顺序：道路/乡村 -> 镇/市 -> 省/州 -> 国/邮编 -->
   <div class="card">
     <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息</div>
     <div class="result-grid" id="primaryGrid">
-      <div class="result-item full-span"><small>状态</small><b id="statusText">等待输入坐标</b></div>
+      <div class="result-item full-span"><small data-i18n="lbl_status">状态</small><b data-i18n="status_ready">等待输入坐标</b></div>
     </div>
   </div>
 
-  <!-- 稍后加载的扩展地形与周边实体数据区块 -->
+  <!-- 扩展地形与周边实体数据区块 -->
   <div class="card">
     <div class="section-title" data-i18n="sec_extended">2. 扩展地形与周边实体数据</div>
     <div class="result-grid" id="extendedGrid">
-      <div class="result-item full-span"><small>状态</small><b>等待核心数据加载完成...</b></div>
+      <div class="result-item full-span"><small data-i18n="lbl_status">状态</small><b data-i18n="status_waiting_ext">等待核心数据加载完成...</b></div>
     </div>
   </div>
 </div>
@@ -79,6 +79,7 @@ const i18n = {
     brand: "多源全量空间提取 <span>·</span> Advanced GIS Engine",
     lbl_lat: "纬度",
     lbl_lon: "经度",
+    lbl_status: "状态",
     btn_query: "深度提取全量空间与地形数据",
     btn_current: "获取当前GPS定位",
     sec_primary: "1. 核心地理位置信息",
@@ -93,9 +94,12 @@ const i18n = {
     r_postcode: "邮编",
     r_elevation: "海拔高度",
     r_infra: "周边基础设施",
+    unit_meters: "米",
+    no_infra: "半径100米内无特定基础设施",
     status_ready: "等待输入坐标",
     status_loading_primary: "正在快速加载核心地理位置...",
     status_loading_extended: "正在后台加载地形与周边实体...",
+    status_waiting_ext: "等待核心数据加载完成...",
     err_geo: "浏览器不支持定位或权限拒绝",
     err_fetch: "获取多源空间数据失败，请重试"
   },
@@ -103,6 +107,7 @@ const i18n = {
     brand: "Advanced GIS Engine <span>·</span> Multi-Source Extractor",
     lbl_lat: "Latitude",
     lbl_lon: "Longitude",
+    lbl_status: "Status",
     btn_query: "Extract Spatial & Terrain Data",
     btn_current: "Get Current GPS",
     sec_primary: "1. Core Location Details",
@@ -117,9 +122,12 @@ const i18n = {
     r_postcode: "Postcode",
     r_elevation: "Elevation",
     r_infra: "Nearby Infrastructure",
+    unit_meters: "meters",
+    no_infra: "None within 100m radius",
     status_ready: "Waiting for coordinates",
     status_loading_primary: "Quickly loading core location details...",
     status_loading_extended: "Loading elevation & infrastructure in background...",
+    status_waiting_ext: "Waiting for core data...",
     err_geo: "Geolocation not supported or denied",
     err_fetch: "Failed to fetch multi-source data, please retry"
   }
@@ -147,7 +155,7 @@ function fetchCurrentLocation() {
     return;
   }
   
-  document.getElementById('primaryGrid').innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
+  document.getElementById('primaryGrid').innerHTML = `<div class="result-item full-span"><small>${i18n[currentLang].lbl_status}</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -174,18 +182,17 @@ async function extractAllData() {
   const primaryGrid = document.getElementById('primaryGrid');
   const extendedGrid = document.getElementById('extendedGrid');
 
-  primaryGrid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
-  extendedGrid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].status_loading_extended}</b></div>`;
+  primaryGrid.innerHTML = `<div class="result-item full-span"><small>${i18n[currentLang].lbl_status}</small><b>${i18n[currentLang].status_loading_primary}</b></div>`;
+  extendedGrid.innerHTML = `<div class="result-item full-span"><small>${i18n[currentLang].lbl_status}</small><b>${i18n[currentLang].status_loading_extended}</b></div>`;
 
   try {
     const apiLang = currentLang === 'en' ? 'en' : 'zh-CN';
 
-    // 1. 优先请求核心地理位置
+    // 1. 请求核心地理位置
     const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=${apiLang}`;
     const nomRes = await fetch(nominatimUrl).then(r => r.json());
     lastAddress = nomRes.address || {};
 
-    // 渲染核心数据（满足左/右指定顺序）
     renderCoreResults();
 
     // 2. 异步并行请求扩展数据（高程、周边实体）
@@ -220,7 +227,7 @@ function renderCoreResults() {
   const postcode = address.postcode || '-';
 
   const primaryGrid = document.getElementById('primaryGrid');
-  // 严格遵循：左道路，右乡/村；左镇，右市；左省，右州；左国，右邮编
+  // 严格按要求左右2列排布：左道路，右乡/村；左镇，右市；左省，右州；左国，右邮编
   primaryGrid.innerHTML = `
     <div class="result-item"><small>${i18n[currentLang].r_road}</small><b>${road}</b></div>
     <div class="result-item"><small>${i18n[currentLang].r_village}</small><b>${village}</b></div>
@@ -235,8 +242,10 @@ function renderCoreResults() {
 
 function renderExtendedResults() {
   const extendedGrid = document.getElementById('extendedGrid');
+  const elevationVal = lastElevation && lastElevation.elevation !== undefined ? `${lastElevation.elevation} ${i18n[currentLang].unit_meters}` : 'N/A';
+  
   let extendedHtml = `
-    <div class="result-item full-span"><small>${i18n[currentLang].r_elevation}</small><b>${lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation + ' meters' : 'N/A'}</b></div>
+    <div class="result-item full-span"><small>${i18n[currentLang].r_elevation}</small><b>${elevationVal}</b></div>
   `;
 
   const elements = lastOverpass && lastOverpass.elements ? lastOverpass.elements : [];
@@ -252,7 +261,7 @@ function renderExtendedResults() {
       `;
     });
   } else {
-    extendedHtml += `<div class="result-item full-span"><small>${i18n[currentLang].r_infra}</small><b>None within 100m radius</b></div>`;
+    extendedHtml += `<div class="result-item full-span"><small>${i18n[currentLang].r_infra}</small><b>${i18n[currentLang].no_infra}</b></div>`;
   }
 
   extendedGrid.innerHTML = extendedHtml;

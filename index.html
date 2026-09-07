@@ -105,6 +105,7 @@ const i18n = {
     r_cycleway: "自行车道",
     r_infra: "周边基础设施",
     unit_meters: "米",
+    precision_val: "Open-Meteo 高程模型 / GPS 传感器",
     no_infra: "半径100米内无特定基础设施",
     status_ready: "等待输入坐标",
     status_loading_primary: "正在快速加载核心地理位置...",
@@ -142,6 +143,7 @@ const i18n = {
     r_cycleway: "Cycleway",
     r_infra: "Nearby Infrastructure",
     unit_meters: "meters",
+    precision_val: "Open-Meteo DEM / GPS Sensor",
     no_infra: "None within 100m radius",
     status_ready: "Waiting for coordinates",
     status_loading_primary: "Quickly loading core location details...",
@@ -151,6 +153,68 @@ const i18n = {
     err_fetch: "Failed to fetch multi-source data, please retry"
   }
 };
+
+const osmValueMap = {
+  zh: {
+    yes: "是",
+    no: "否",
+    "-1": "反向单行",
+    asphalt: "沥青",
+    paved: "已铺装",
+    unpaved: "未铺装",
+    gravel: "碎石",
+    dirt: "土路",
+    earth: "泥土",
+    concrete: "混凝土",
+    sand: "沙地",
+    compacted: "压实路面",
+    excellent: "极佳",
+    good: "良好",
+    intermediate: "一般",
+    bad: "较差",
+    horrible: "极差",
+    very_horrible: "非常差",
+    impassable: "无法通行",
+    lane: "车道混合",
+    track: "专用道",
+    shared_lane: "共享车道",
+    opposite: "逆行车道",
+    none: "无"
+  },
+  en: {
+    yes: "Yes",
+    no: "No",
+    "-1": "Reverse",
+    asphalt: "Asphalt",
+    paved: "Paved",
+    unpaved: "Unpaved",
+    gravel: "Gravel",
+    dirt: "Dirt",
+    earth: "Earth",
+    concrete: "Concrete",
+    sand: "Sand",
+    compacted: "Compacted",
+    excellent: "Excellent",
+    good: "Good",
+    intermediate: "Intermediate",
+    bad: "Bad",
+    horrible: "Horrible",
+    very_horrible: "Very Horrible",
+    impassable: "Impassable",
+    lane: "Lane",
+    track: "Track",
+    shared_lane: "Shared Lane",
+    opposite: "Opposite",
+    none: "None"
+  }
+};
+
+function translateOSMValue(val) {
+  if (!val || val === '-') return '-';
+  const lower = String(val).toLowerCase();
+  const map = osmValueMap[currentLang];
+  return map[lower] || val;
+}
 
 function toggleLang() {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
@@ -247,7 +311,6 @@ function renderCoreResults() {
   const postcode = address.postcode || '-';
 
   const primaryGrid = document.getElementById('primaryGrid');
-  // 严格按要求左右2列排布：左道路，右乡/村；左镇，右市；左省，右州；左国，右邮编
   primaryGrid.innerHTML = `
     <div class="result-item"><small>${i18n[currentLang].r_road}</small><b>${road}</b></div>
     <div class="result-item"><small>${i18n[currentLang].r_village}</small><b>${village}</b></div>
@@ -264,15 +327,16 @@ function renderExtendedResults() {
   const extendedGrid = document.getElementById('extendedGrid');
   const elevationVal = lastElevation && lastElevation.elevation !== undefined ? `${lastElevation.elevation} ${i18n[currentLang].unit_meters}` : 'N/A';
   
-  const precisionSource = 'Open-Meteo DEM / GPS Sensor';
+  const precisionSource = i18n[currentLang].precision_val;
   const quarter = lastAddress.quarter || '-';
   const hamlet = lastAddress.hamlet || '-';
   const countryCode = lastAddress.country_code ? lastAddress.country_code.toUpperCase() : '-';
+  
   const lanes = lastExtratags.lanes || '-';
-  const oneway = lastExtratags.oneway || '-';
-  const surface = lastExtratags.surface || '-';
-  const smoothness = lastExtratags.smoothness || '-';
-  const cycleway = lastExtratags.cycleway || '-';
+  const oneway = translateOSMValue(lastExtratags.oneway);
+  const surface = translateOSMValue(lastExtratags.surface);
+  const smoothness = translateOSMValue(lastExtratags.smoothness);
+  const cycleway = translateOSMValue(lastExtratags.cycleway);
 
   let extendedHtml = `
     <div class="result-item"><small>${i18n[currentLang].r_elevation}</small><b>${elevationVal}</b></div>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0d1117">
-<title>全球地理位置信息提取引擎</title>
+<title>多源全量空间大数据提取引擎</title>
 <style>
 :root{--bg:#090d13;--panel:#111722;--panel2:#171e2b;--line:#273244;--text:#edf2f7;--muted:#93a0b3;--gold:#d8b36a;--green:#72b08a}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif}
@@ -32,8 +32,9 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 
 <div class="app">
   <header>
-    <div class="brand" data-i18n="brand">全球地理位置信息收索器</div>
-    <button id="langBtn" class="secondary" style="width:38px;height:38px;border-radius:50%;padding:0;font-size:16px;display:flex;align-items:center;justify-content:center;" onclick="toggleLang()" title="Switch Language">🇬🇧</button>
+    <div class="brand" data-i18n="brand">多源全量空间提取 <span>·</span> Advanced GIS Engine</div>
+    <!-- 默认语言为中文，初始化显示中国国旗 -->
+    <button id="langBtn" class="secondary" style="width:38px;height:38px;border-radius:50%;padding:0;font-size:16px;display:flex;align-items:center;justify-content:center;" onclick="toggleLang()" title="Switch Language">🇨🇳</button>
   </header>
 
   <div class="card">
@@ -46,7 +47,7 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
       <input id="lonInput" type="number" step="any" placeholder="例如: 101.6869">
     </div>
     <div class="actions">
-      <button class="primary" onclick="extractAllData()" data-i18n="btn_query">输入经纬定位</button>
+      <button class="primary" onclick="extractAllData()" data-i18n="btn_query">深度提取全量空间与地形数据</button>
       <button class="secondary" onclick="fetchCurrentLocation()" data-i18n="btn_current">获取当前GPS定位</button>
     </div>
   </div>
@@ -216,7 +217,10 @@ function translateOSMValue(val) {
 
 function toggleLang() {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
-  document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇬🇧' : '🇨🇳';
+  
+  // 根据当前语言实时切换国旗：中文显示中国国旗，英文显示英国国旗
+  document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇨🇳' : '🇬🇧';
+  
   updateText();
   
   const lat = document.getElementById('latInput').value;

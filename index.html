@@ -11,7 +11,8 @@
 body{padding-bottom:env(safe-area-inset-bottom)}
 .app{max-width:720px;margin:auto;min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 16px 28px}
 header{display:flex;justify-content:space-between;align-items:center;padding:10px 2px 20px}
-.brand{font-weight:800;letter-spacing:.08em;font-size:18px}.brand span{color:var(--gold)}
+.brand{font-weight:800;letter-spacing:.08em;font-size:18px;flex:1;padding-right:10px;word-break:break-word}
+.brand span{color:var(--gold)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:15px;box-shadow:0 16px 45px #0005}
 .field{background:#0c121b;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -33,8 +34,8 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 <div class="app">
   <header>
     <div class="brand" data-i18n="brand">全球地理位置信息提取</div>
-    <!-- 默认语言为中文，初始化显示中国国旗 -->
-    <button id="langBtn" class="secondary" style="width:38px;height:38px;border-radius:50%;padding:0;font-size:16px;display:flex;align-items:center;justify-content:center;" onclick="toggleLang()" title="Switch Language">🇨🇳</button>
+    <!-- Removed class="secondary" and added flex-shrink: 0, min-width, border: none -->
+    <button id="langBtn" style="width:38px;height:38px;min-width:38px;flex-shrink:0;border:none;background:transparent;border-radius:50%;padding:0;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="toggleLang()" title="Switch Language">🇨🇳</button>
   </header>
 
   <div class="card">
@@ -218,7 +219,6 @@ function translateOSMValue(val) {
 function toggleLang() {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
   
-  // 根据当前语言实时切换国旗：中文显示中国国旗，英文显示英国国旗
   document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇨🇳' : '🇬🇧';
   
   updateText();

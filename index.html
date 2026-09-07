@@ -17,8 +17,8 @@ header{display:flex;justify-content:space-between;align-items:center;padding:10p
 .field{background:#0c121b;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 input{width:100%;background:transparent;border:0;color:var(--text);font-size:16px;outline:0}
-select{width:100%;background:transparent;border:0;color:var(--text);font-size:16px;outline:0;cursor:pointer}
-select option{background:var(--panel2);color:var(--text)}
+select.secondary{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:13px 16px;font-size:14px;font-weight:700;outline:0;cursor:pointer}
+select.secondary option{background:var(--panel2);color:var(--text)}
 .actions{display:flex;gap:10px;margin-top:16px}
 button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:700;cursor:pointer}
 .primary{background:var(--gold);color:#15110a;flex:1}
@@ -40,12 +40,6 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
   </header>
 
   <div class="card">
-    <!-- Preset Dropdown Field -->
-    <div class="field">
-      <label data-i18n="lbl_preset">预设城市 (快捷选择)</label>
-      <select id="presetSelect" onchange="loadPreset()"></select>
-    </div>
-
     <div class="field">
       <label data-i18n="lbl_lat">纬度</label>
       <input id="latInput" type="number" step="any" placeholder="例如: 3.1390">
@@ -57,6 +51,10 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     <div class="actions">
       <button class="primary" onclick="extractAllData()" data-i18n="btn_query">输入经纬定位</button>
       <button class="secondary" onclick="fetchCurrentLocation()" data-i18n="btn_current">获取当前GPS定位</button>
+    </div>
+    <!-- Preset Dropdown Field positioned below buttons and styled to match button size -->
+    <div style="margin-top: 10px;">
+      <select id="presetSelect" class="secondary" onchange="loadPreset()"></select>
     </div>
   </div>
 
@@ -85,7 +83,6 @@ let lastOverpass = null;
 const i18n = {
   zh: {
     brand: "全球地理位置信息提取",
-    lbl_preset: "预设城市 (快捷选择)",
     lbl_lat: "纬度",
     lbl_lon: "经度",
     lbl_status: "状态",
@@ -124,7 +121,6 @@ const i18n = {
   },
   en: {
     brand: "Global Geographic Information Extractor",
-    lbl_preset: "Preset City (Quick Select)",
     lbl_lat: "Latitude",
     lbl_lon: "Longitude",
     lbl_status: "Status",

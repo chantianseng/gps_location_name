@@ -21,8 +21,7 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 .primary{background:var(--gold);color:#15110a;flex:1}
 .secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line);flex:1}
 .section-title{font-weight:800;margin:15px 0 10px;font-size:15px;color:var(--gold);display:flex;align-items:center;gap:8px}
-.result-grid{display:grid;grid-template-columns:1fr;gap:10px}
-@media(min-width:480px){.result-grid{grid-template-columns:1fr 1fr}}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .result-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .result-item small{display:block;color:var(--muted);font-size:11px;margin-bottom:4px;word-break:break-all}
 .result-item b{font-size:14px;color:var(--text);word-break:break-all}
@@ -39,11 +38,11 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 
   <div class="card">
     <div class="field">
-      <label data-i18n="lbl_lat">纬度 (Latitude)</label>
+      <label data-i18n="lbl_lat">纬度</label>
       <input id="latInput" type="number" step="any" placeholder="例如: 3.1390">
     </div>
     <div class="field">
-      <label data-i18n="lbl_lon">经度 (Longitude)</label>
+      <label data-i18n="lbl_lon">经度</label>
       <input id="lonInput" type="number" step="any" placeholder="例如: 101.6869">
     </div>
     <div class="actions">
@@ -52,44 +51,48 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- 优先马上显示的区块：Road, Town, City, Postcode, State/Province, Country -->
+  <!-- 核心地理位置信息：严格按要求左右2列排布 (左道路/右乡村 -> 左镇/市 -> 左省/右州 -> 左国/右邮编) -->
   <div class="card">
-    <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息 (Core Location Details)</div>
+    <div class="section-title" data-i18n="sec_primary">1. 核心地理位置信息</div>
     <div class="result-grid" id="primaryGrid">
-      <div class="result-item full-span"><small>Status</small><b>等待输入坐标 / Waiting for input</b></div>
+      <div class="result-item full-span"><small>状态</small><b id="statusText">等待输入坐标</b></div>
     </div>
   </div>
 
-  <!-- 稍后加载的扩展数据区块：Elevation, Infrastructure等 -->
+  <!-- 稍后加载的扩展地形与周边实体数据区块 -->
   <div class="card">
-    <div class="section-title" data-i18n="sec_extended">2. 扩展地形与周边实体数据 (Extended Terrain & Infrastructure)</div>
+    <div class="section-title" data-i18n="sec_extended">2. 扩展地形与周边实体数据</div>
     <div class="result-grid" id="extendedGrid">
-      <div class="result-item full-span"><small>Status</small><b>等待核心数据加载完成 / Waiting...</b></div>
+      <div class="result-item full-span"><small>状态</small><b>等待核心数据加载完成...</b></div>
     </div>
   </div>
 </div>
 
 <script>
 let currentLang = 'zh';
+let lastAddress = {};
+let lastElevation = null;
+let lastOverpass = null;
 
 const i18n = {
   zh: {
     brand: "多源全量空间提取 <span>·</span> Advanced GIS Engine",
-    lbl_lat: "纬度 (Latitude)",
-    lbl_lon: "经度 (Longitude)",
+    lbl_lat: "纬度",
+    lbl_lon: "经度",
     btn_query: "深度提取全量空间与地形数据",
     btn_current: "获取当前GPS定位",
-    sec_primary: "1. 核心地理位置信息 (Road, Town, City, Postcode, State, Country)",
-    sec_extended: "2. 扩展地形与周边实体数据 (Extended Terrain & Infrastructure)",
-    r_country: "国家 (Country)",
-    r_state: "省/州 (State/Province)",
-    r_city: "市 (City)",
-    r_district: "地区/县 (District)",
-    r_town: "镇/村/本地名 (Town/Village)",
-    r_road: "道路 (Road)",
-    r_postcode: "邮编 (Postcode)",
-    r_elevation: "海拔高度 (Elevation)",
-    r_infra: "周边基础设施 (Nearby Infrastructure)",
+    sec_primary: "1. 核心地理位置信息",
+    sec_extended: "2. 扩展地形与周边实体数据",
+    r_road: "道路",
+    r_village: "乡/村",
+    r_town: "镇",
+    r_city: "市",
+    r_state: "省",
+    r_region: "州",
+    r_country: "国",
+    r_postcode: "邮编",
+    r_elevation: "海拔高度",
+    r_infra: "周边基础设施",
     status_ready: "等待输入坐标",
     status_loading_primary: "正在快速加载核心地理位置...",
     status_loading_extended: "正在后台加载地形与周边实体...",
@@ -102,14 +105,15 @@ const i18n = {
     lbl_lon: "Longitude",
     btn_query: "Extract Spatial & Terrain Data",
     btn_current: "Get Current GPS",
-    sec_primary: "1. Core Location Details (Road, Town, City, Postcode, State, Country)",
+    sec_primary: "1. Core Location Details",
     sec_extended: "2. Extended Terrain & Infrastructure Data",
-    r_country: "Country",
-    r_state: "State/Province",
-    r_city: "City",
-    r_district: "District",
-    r_town: "Town/Village",
     r_road: "Road",
+    r_village: "Town/Village",
+    r_town: "Town",
+    r_city: "City",
+    r_state: "Province/State",
+    r_region: "Region/State",
+    r_country: "Country",
     r_postcode: "Postcode",
     r_elevation: "Elevation",
     r_infra: "Nearby Infrastructure",
@@ -125,6 +129,9 @@ function toggleLang() {
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
   document.getElementById('langBtn').innerText = currentLang === 'zh' ? '🇬🇧' : '🇨🇳';
   updateText();
+  if (Object.keys(lastAddress).length > 0) {
+    renderResults();
+  }
 }
 
 function updateText() {
@@ -173,30 +180,15 @@ async function extractAllData() {
   try {
     const apiLang = currentLang === 'en' ? 'en' : 'zh-CN';
 
-    // 1. 优先请求核心地理位置（速度最快）
+    // 1. 优先请求核心地理位置
     const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=${apiLang}`;
     const nomRes = await fetch(nominatimUrl).then(r => r.json());
-    const address = nomRes.address || {};
+    lastAddress = nomRes.address || {};
 
-    // 提取要求的核心字段：road, town, city, postcode, state/province, country
-    const road = address.road || address.pedestrian || address.footway || '-';
-    const town = address.town || address.suburb || address.village || address.hamlet || address.neighbourhood || '-';
-    const city = address.city || address.town || address.municipality || address.county || '-';
-    const postcode = address.postcode || '-';
-    const state = address.state || address.province || address.region || '-';
-    const country = address.country || '-';
+    // 渲染核心数据（满足左/右指定顺序）
+    renderCoreResults();
 
-    // 马上渲染核心数据区块
-    primaryGrid.innerHTML = `
-      <div class="result-item"><small>${i18n[currentLang].r_country}</small><b>${country}</b></div>
-      <div class="result-item"><small>${i18n[currentLang].r_state}</small><b>${state}</b></div>
-      <div class="result-item"><small>${i18n[currentLang].r_city}</small><b>${city}</b></div>
-      <div class="result-item"><small>${i18n[currentLang].r_town}</small><b>${town}</b></div>
-      <div class="result-item"><small>${i18n[currentLang].r_road}</small><b>${road}</b></div>
-      <div class="result-item"><small>${i18n[currentLang].r_postcode}</small><b>${postcode}</b></div>
-    `;
-
-    // 2. 异步并行请求耗时较长的扩展数据（如高程、周边实体）
+    // 2. 异步并行请求扩展数据（高程、周边实体）
     const elevationUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
     const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:100,${lat},${lon});out body;`;
 
@@ -205,34 +197,73 @@ async function extractAllData() {
       fetch(overpassUrl).then(r => r.json())
     ]);
 
-    const eleData = eleRes.status === 'fulfilled' ? eleRes.value : {};
-    const overData = overRes.status === 'fulfilled' ? overRes.value : {};
+    lastElevation = eleRes.status === 'fulfilled' ? eleRes.value : {};
+    lastOverpass = overRes.status === 'fulfilled' ? overRes.value : {};
 
-    let extendedHtml = `
-      <div class="result-item"><small>${i18n[currentLang].r_elevation}</small><b>${eleData.elevation !== undefined ? eleData.elevation + ' meters' : 'N/A'}</b></div>
-    `;
-
-    const elements = overData.elements || [];
-    if (elements.length > 0) {
-      elements.slice(0, 4).forEach((el, idx) => {
-        const tags = el.tags || {};
-        const name = tags.name || tags.amenity || tags.building || tags.highway || `Node #${el.id}`;
-        extendedHtml += `
-          <div class="result-item">
-            <small>${i18n[currentLang].r_infra} #${idx+1}</small>
-            <b>${name}</b>
-          </div>
-        `;
-      });
-    } else {
-      extendedHtml += `<div class="result-item"><small>${i18n[currentLang].r_infra}</small><b>None within 100m radius</b></div>`;
-    }
-
-    extendedGrid.innerHTML = extendedHtml;
+    renderExtendedResults();
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);
     console.error(e);
+  }
+}
+
+function renderCoreResults() {
+  const address = lastAddress;
+  const road = address.road || address.pedestrian || address.footway || '-';
+  const village = address.village || address.hamlet || address.suburb || '-';
+  const town = address.town || address.municipality || '-';
+  const city = address.city || address.town || address.county || '-';
+  const state = address.state || address.province || '-';
+  const region = address.region || address.state_district || '-';
+  const country = address.country || '-';
+  const postcode = address.postcode || '-';
+
+  const primaryGrid = document.getElementById('primaryGrid');
+  // 严格遵循：左道路，右乡/村；左镇，右市；左省，右州；左国，右邮编
+  primaryGrid.innerHTML = `
+    <div class="result-item"><small>${i18n[currentLang].r_road}</small><b>${road}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_village}</small><b>${village}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_town}</small><b>${town}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_city}</small><b>${city}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_state}</small><b>${state}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_region}</small><b>${region}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_country}</small><b>${country}</b></div>
+    <div class="result-item"><small>${i18n[currentLang].r_postcode}</small><b>${postcode}</b></div>
+  `;
+}
+
+function renderExtendedResults() {
+  const extendedGrid = document.getElementById('extendedGrid');
+  let extendedHtml = `
+    <div class="result-item full-span"><small>${i18n[currentLang].r_elevation}</small><b>${lastElevation && lastElevation.elevation !== undefined ? lastElevation.elevation + ' meters' : 'N/A'}</b></div>
+  `;
+
+  const elements = lastOverpass && lastOverpass.elements ? lastOverpass.elements : [];
+  if (elements.length > 0) {
+    elements.slice(0, 4).forEach((el, idx) => {
+      const tags = el.tags || {};
+      const name = tags.name || tags.amenity || tags.building || tags.highway || `Node #${el.id}`;
+      extendedHtml += `
+        <div class="result-item">
+          <small>${i18n[currentLang].r_infra} #${idx+1}</small>
+          <b>${name}</b>
+        </div>
+      `;
+    });
+  } else {
+    extendedHtml += `<div class="result-item full-span"><small>${i18n[currentLang].r_infra}</small><b>None within 100m radius</b></div>`;
+  }
+
+  extendedGrid.innerHTML = extendedHtml;
+}
+
+function renderResults() {
+  if (Object.keys(lastAddress).length > 0) {
+    renderCoreResults();
+  }
+  if (lastElevation || lastOverpass) {
+    renderExtendedResults();
   }
 }
 </script>

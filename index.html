@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0d1117">
-<title>经纬度地理位置查询</title>
+<title>全量经纬度地理位置数据读取</title>
 <style>
 :root{--bg:#090d13;--panel:#111722;--panel2:#171e2b;--line:#273244;--text:#edf2f7;--muted:#93a0b3;--gold:#d8b36a;}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif}
 body{padding-bottom:env(safe-area-inset-bottom)}
-.app{max-width:600px;margin:auto;min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 16px 28px}
+.app{max-width:650px;margin:auto;min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 16px 28px}
 header{display:flex;justify-content:space-between;align-items:center;padding:10px 2px 20px}
 .brand{font-weight:800;letter-spacing:.08em;font-size:18px}.brand span{color:var(--gold)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:15px;box-shadow:0 16px 45px #0005}
@@ -21,18 +21,20 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
 .primary{background:var(--gold);color:#15110a;flex:1}
 .secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line);flex:1}
 .title{font-weight:800;margin-bottom:14px;font-size:16px;color:var(--gold)}
-.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.result-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
-.result-item small{display:block;color:var(--muted);font-size:11px;margin-bottom:6px}
-.result-item b{font-size:15px;color:var(--text);word-break:break-all}
-.full-span{grid-column:span 2}
+.result-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:480px){.result-grid{grid-template-columns:1fr 1fr}}
+.result-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.result-item small{display:block;color:var(--muted);font-size:11px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.result-item b{font-size:14px;color:var(--text);word-break:break-all}
+.full-span{grid-column:1 / -1}
+.display-name-box{background:#0c121b;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;font-size:14px;line-height:1.6;color:var(--gold)}
 </style>
 </head>
 <body>
 
 <div class="app">
   <header>
-    <div class="brand" data-i18n="brand">经纬度地理位置查询 <span>·</span> Location Finder</div>
+    <div class="brand" data-i18n="brand">全量地理数据提取 <span>·</span> Full GPS Data</div>
     <button id="langBtn" class="secondary" style="width:38px;height:38px;border-radius:50%;padding:0;font-size:16px;display:flex;align-items:center;justify-content:center;" onclick="toggleLang()" title="Switch Language">🇬🇧</button>
   </header>
 
@@ -46,19 +48,16 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
       <input id="lonInput" type="number" step="any" placeholder="例如: 101.6869">
     </div>
     <div class="actions">
-      <button class="primary" onclick="queryLocation()" data-i18n="btn_query">查询经纬度位置</button>
-      <button class="secondary" onclick="fetchCurrentLocation()" data-i18n="btn_current">获取当前GPS位置</button>
+      <button class="primary" onclick="queryLocation()" data-i18n="btn_query">提取全部位置数据</button>
+      <button class="secondary" onclick="fetchCurrentLocation()" data-i18n="btn_current">获取当前GPS</button>
     </div>
   </div>
 
   <div class="card">
-    <div class="title" data-i18n="res_title">详细地理位置信息</div>
-    <div class="result-grid">
-      <div class="result-item"><small data-i18n="r_country">国家 (Country)</small><b id="resCountry">-</b></div>
-      <div class="result-item"><small data-i18n="r_province">省 / 州 (Province/State)</small><b id="resState">-</b></div>
-      <div class="result-item"><small data-i18n="r_city">市 (City)</small><b id="resCity">-</b></div>
-      <div class="result-item"><small data-i18n="r_district">地区 (District)</small><b id="resDistrict">-</b></div>
-      <div class="result-item full-span"><small data-i18n="r_local">乡下 / 镇 / 村 / 当地名 (Town/Village/Local)</small><b id="resLocal">-</b></div>
+    <div class="title" data-i18n="res_title">完整地址解析结果 (All Extracted Fields)</div>
+    <div id="displayNameContainer" class="display-name-box" style="display:none;"></div>
+    <div id="resultGrid" class="result-grid">
+      <div class="result-item full-span"><small>Status</small><b>Ready / 请输入或获取经纬度</b></div>
     </div>
   </div>
 </div>
@@ -68,38 +67,28 @@ let currentLang = 'zh';
 
 const i18n = {
   zh: {
-    brand: "经纬度地理位置查询 <span>·</span> Location Finder",
+    brand: "全量地理数据提取 <span>·</span> Full GPS Data",
     lbl_lat: "纬度 (Latitude)",
     lbl_lon: "经度 (Longitude)",
-    btn_query: "查询经纬度位置",
-    btn_current: "获取当前GPS位置",
-    res_title: "详细地理位置信息",
-    r_country: "国家",
-    r_province: "省 / 州",
-    r_city: "市",
-    r_district: "地区 / 县",
-    r_local: "乡下 / 镇 / 村 / 当地名",
+    btn_query: "提取全部位置数据",
+    btn_current: "获取当前GPS",
+    res_title: "完整地址解析结果 (All Extracted Fields)",
     err_geo: "浏览器不支持地理定位或定位权限被拒绝",
     err_fetch: "获取地址信息失败，请检查经纬度数值",
-    locating: "正在定位中...",
-    querying: "正在查询..."
+    locating: "正在获取GPS定位...",
+    querying: "正在向服务器请求全量数据..."
   },
   en: {
-    brand: "Location Finder <span>·</span> Lat/Lon Lookup",
+    brand: "Full GPS Data Extractor",
     lbl_lat: "Latitude",
     lbl_lon: "Longitude",
-    btn_query: "Query Location",
+    btn_query: "Extract All Location Data",
     btn_current: "Get Current GPS",
-    res_title: "Detailed Location Info",
-    r_country: "Country",
-    r_province: "Province/State",
-    r_city: "City",
-    r_district: "District",
-    r_local: "Town/Village/Local Name",
+    res_title: "All Extracted Address Fields",
     err_geo: "Geolocation not supported or permission denied",
     err_fetch: "Failed to fetch address details, please check coordinates",
-    locating: "Locating...",
-    querying: "Querying..."
+    locating: "Getting GPS location...",
+    querying: "Fetching all data from server..."
   }
 };
 
@@ -122,11 +111,9 @@ function fetchCurrentLocation() {
     return;
   }
   
-  document.getElementById('resCountry').innerText = i18n[currentLang].locating;
-  document.getElementById('resState').innerText = "...";
-  document.getElementById('resCity').innerText = "...";
-  document.getElementById('resDistrict').innerText = "...";
-  document.getElementById('resLocal').innerText = "...";
+  const grid = document.getElementById('resultGrid');
+  grid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].locating}</b></div>`;
+  document.getElementById('displayNameContainer').style.display = 'none';
 
   navigator.geolocation.getCurrentPosition(
     pos => {
@@ -136,7 +123,7 @@ function fetchCurrentLocation() {
     },
     err => {
       alert(i18n[currentLang].err_geo + ": " + err.message);
-      clearResults();
+      grid.innerHTML = `<div class="result-item full-span"><small>Error</small><b>${err.message}</b></div>`;
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
@@ -151,35 +138,60 @@ async function queryLocation() {
     return;
   }
 
-  document.getElementById('resCountry').innerText = i18n[currentLang].querying;
-  document.getElementById('resState').innerText = "...";
-  document.getElementById('resCity').innerText = "...";
-  document.getElementById('resDistrict').innerText = "...";
-  document.getElementById('resLocal').innerText = "...";
+  const grid = document.getElementById('resultGrid');
+  grid.innerHTML = `<div class="result-item full-span"><small>Status</small><b>${i18n[currentLang].querying}</b></div>`;
+  const nameBox = document.getElementById('displayNameContainer');
+  nameBox.style.display = 'none';
 
   try {
     const apiLang = currentLang === 'en' ? 'en' : 'zh-CN';
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=${apiLang}`);
     const data = await res.json();
-    const addr = data.address || {};
+    
+    if (data.error) {
+      grid.innerHTML = `<div class="result-item full-span"><small>Error</small><b>${data.error}</b></div>`;
+      return;
+    }
 
-    document.getElementById('resCountry').innerText = addr.country || '-';
-    document.getElementById('resState').innerText = addr.state || addr.province || addr.region || '-';
-    document.getElementById('resCity').innerText = addr.city || addr.town || addr.municipality || '-';
-    document.getElementById('resDistrict').innerText = addr.county || addr.city_district || addr.suburb || '-';
-    document.getElementById('resLocal').innerText = addr.village || addr.hamlet || addr.neighbourhood || addr.locality || addr.suburb || '-';
+    // 显示完整匹配的展示名称 (display_name)
+    if (data.display_name) {
+      nameBox.style.display = 'block';
+      nameBox.innerHTML = `<strong>Full Display Name:</strong> ${data.display_name}`;
+    }
+
+    // 获取 address 对象内部包含的所有层级/字段
+    const addressObj = data.address || {};
+    let htmlContent = '';
+
+    // 动态遍历 address 对象里的每一个键值对，保证读取并展示所有数据
+    const keys = Object.keys(addressObj);
+    if (keys.length === 0) {
+      htmlContent = `<div class="result-item full-span"><small>Notice</small><b>No address tags found for these coordinates.</b></div>`;
+    } else {
+      keys.forEach(key => {
+        htmlContent += `
+          <div class="result-item">
+            <small>${key}</small>
+            <b>${addressObj[key]}</b>
+          </div>
+        `;
+      });
+    }
+
+    // 附加额外返回的元数据信息（如 osm_id, lat, lon 等）
+    htmlContent += `
+      <div class="result-item"><small>osm_type</small><b>${data.osm_type || '-'}</b></div>
+      <div class="result-item"><small>osm_id</small><b>${data.osm_id || '-'}</b></div>
+      <div class="result-item"><small>latitude</small><b>${data.lat || lat}</b></div>
+      <div class="result-item"><small>longitude</small><b>${data.lon || lon}</b></div>
+    `;
+
+    grid.innerHTML = htmlContent;
+
   } catch (e) {
     alert(i18n[currentLang].err_fetch);
-    clearResults();
+    grid.innerHTML = `<div class="result-item full-span"><small>Error</small><b>${i18n[currentLang].err_fetch}</b></div>`;
   }
-}
-
-function clearResults() {
-  document.getElementById('resCountry').innerText = '-';
-  document.getElementById('resState').innerText = '-';
-  document.getElementById('resCity').innerText = '-';
-  document.getElementById('resDistrict').innerText = '-';
-  document.getElementById('resLocal').innerText = '-';
 }
 </script>
 </body>

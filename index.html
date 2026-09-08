@@ -78,6 +78,13 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
       <div class="result-item full-span"><small data-i18n="lbl_status">状态</small><b data-i18n="status_waiting_ext">等待核心数据加载完成...</b></div>
     </div>
   </div>
+
+  <!-- NEW MAP SECTION -->
+  <div class="card" id="mapCard" style="display: none;">
+    <div class="section-title">3. GPS Location in Map</div>
+    <div id="googleMap" style="width: 100%; height: 350px; border-radius: 12px; background: var(--panel2);"></div>
+  </div>
+
 </div>
 
 <script>
@@ -86,6 +93,10 @@ let lastAddress = {};
 let lastExtratags = {};
 let lastElevation = null;
 let lastOverpass = null;
+
+// Map Variables
+let googleMap = null;
+let googleMarker = null;
 
 // Coordinate history management variables
 let coordHistory = [];
@@ -260,6 +271,31 @@ const presetLocations = [
   { id: 'ar', zh: '布宜诺斯艾利斯, 阿根廷 (Buenos Aires, AR)', en: 'Buenos Aires, Argentina', lat: -34.6037, lon: -58.3816 }
 ];
 
+// Initialize Google Map
+window.initGoogleMap = function() {
+  const mapElement = document.getElementById('googleMap');
+  if (mapElement) {
+    googleMap = new google.maps.Map(mapElement, {
+      zoom: 2,
+      center: { lat: 0, lng: 0 },
+      mapTypeId: 'roadmap'
+    });
+    googleMarker = new google.maps.Marker({
+      position: { lat: 0, lng: 0 },
+      map: googleMap
+    });
+  }
+};
+
+// Update Google Map Location
+function updateGoogleMap(lat, lon) {
+  if (!googleMap || !googleMarker) return;
+  const pos = { lat: parseFloat(lat), lng: parseFloat(lon) };
+  googleMap.setCenter(pos);
+  googleMap.setZoom(15);
+  googleMarker.setPosition(pos);
+}
+
 function openMap() {
   const lat = document.getElementById('latInput').value;
   const lon = document.getElementById('lonInput').value;
@@ -280,7 +316,6 @@ function openMap() {
   }
 }
 
-  
 function populatePresets() {
   const select = document.getElementById('presetSelect');
   const currentVal = select.value;
@@ -415,6 +450,21 @@ function toggleLang() {
   
   updateText();
   populatePresets();
+
+  // Control map section visibility based on language
+  const mapCard = document.getElementById('mapCard');
+  if (currentLang === 'en') {
+    mapCard.style.display = 'block';
+    // Trigger map resize if it loaded while hidden
+    if (window.google && google.maps && googleMap) {
+      google.maps.event.trigger(googleMap, 'resize');
+      const curLat = document.getElementById('latInput').value;
+      const curLon = document.getElementById('lonInput').value;
+      if (curLat && curLon) updateGoogleMap(curLat, curLon);
+    }
+  } else {
+    mapCard.style.display = 'none';
+  }
   
   const lat = document.getElementById('latInput').value;
   const lon = document.getElementById('lonInput').value;
@@ -499,6 +549,9 @@ async function extractAllData() {
 
     // ⭐️ MODIFICATION HIGHLIGHT: Automatically syncs log report for manual queries, presets, and GPS alike
     await syncLogReportToGitHub(lat, lon);
+    
+    // Update the Google Map marker when new data is successfully extracted
+    updateGoogleMap(lat, lon);
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);
@@ -589,5 +642,7 @@ function renderResults() {
 // Initialize presets on page load
 populatePresets();
 </script>
+<!-- REPLACE 'YOUR_GOOGLE_MAPS_API_KEY' WITH YOUR ACTUAL API KEY -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDEXzr0g21dXaFuw0ikKmaljtvi9xtRBos&callback=initGoogleMap" async defer></script>
 </body>
 </html>

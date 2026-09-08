@@ -79,7 +79,7 @@ button{border:0;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:
     </div>
   </div>
 
-  <!-- NEW MAP SECTION -->
+  <!-- MAP SECTION -->
   <div class="card" id="mapCard" style="display: none;">
     <div class="section-title">3. GPS Location in Map</div>
     <div id="googleMap" style="width: 100%; height: 350px; border-radius: 12px; background: var(--panel2);"></div>
@@ -518,6 +518,9 @@ async function extractAllData() {
 
   recordHistory(lat, lon);
 
+  // ⭐️ IMEDIATELY update Google Map as soon as GPS coordinates are provided
+  updateGoogleMap(lat, lon);
+
   const primaryGrid = document.getElementById('primaryGrid');
   const extendedGrid = document.getElementById('extendedGrid');
 
@@ -547,11 +550,8 @@ async function extractAllData() {
 
     renderExtendedResults();
 
-    // ⭐️ MODIFICATION HIGHLIGHT: Automatically syncs log report for manual queries, presets, and GPS alike
+    // Automatically syncs log report for manual queries, presets, and GPS alike
     await syncLogReportToGitHub(lat, lon);
-    
-    // Update the Google Map marker when new data is successfully extracted
-    updateGoogleMap(lat, lon);
 
   } catch (e) {
     alert(i18n[currentLang].err_fetch);
@@ -643,6 +643,6 @@ function renderResults() {
 populatePresets();
 </script>
 <!-- REPLACE 'YOUR_GOOGLE_MAPS_API_KEY' WITH YOUR ACTUAL API KEY -->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDEXzr0g21dXaFuw0ikKmaljtvi9xtRBos&callback=initGoogleMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initGoogleMap" async defer></script>
 </body>
 </html>
